@@ -4,6 +4,9 @@ import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import dotenv from "dotenv";
 
+import authRoutes from "./routes/auth";
+import categoryRoutes from "./routes/category";
+
 // Memuat environment variables dari file .env
 dotenv.config();
 
@@ -49,6 +52,10 @@ app.get("/api/health", (req: Request, res: Response) => {
     message: "Server Matengnews.id Backend berjalan dengan aman! 🚀",
   });
 });
+
+// --- REGISTRASI ROUTING API ---
+app.use("/api/auth", authRoutes);
+app.use("/api/categories", categoryRoutes);
 
 // --- GLOBAL ERROR HANDLER ---
 // Menangkap semua eror tak terduga agar stack trace internal database tidak bocor ke publik
