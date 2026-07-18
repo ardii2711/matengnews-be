@@ -1,14 +1,15 @@
-import express, { Application, Request, Response, NextFunction } from "express";
+import express, { Application, Request, Response } from "express";
 import cors from "cors";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import dotenv from "dotenv";
+import { errorHandler } from "./middlewares/error";
 
 import authRoutes from "./routes/auth";
 import categoryRoutes from "./routes/category";
 import postRoutes from "./routes/post";
 import videoRoutes from "./routes/video";
-import userRoutes from './routes/user';
+import userRoutes from "./routes/user";
 
 // Memuat environment variables dari file .env
 dotenv.config();
@@ -48,33 +49,46 @@ app.use("/api/", limiter);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// --- BASE ROUTE CHECK ---
-app.get("/api/health", (req: Request, res: Response) => {
-  res.status(200).json({
-    success: true,
-    message: "Server Matengnews.id Backend berjalan dengan aman! 🚀",
-  });
-});
-
 // --- REGISTRASI ROUTING API ---
 app.use("/api/auth", authRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/posts", postRoutes);
 app.use("/api/videos", videoRoutes);
-app.use('/api/users', userRoutes);
+app.use("/api/users", userRoutes);
 
-// --- GLOBAL ERROR HANDLER ---
-// Menangkap semua eror tak terduga agar stack trace internal database tidak bocor ke publik
-app.use((err: any, req: Request, res: Response, next: NextFunction) => {
-  console.error(err.stack);
-  res.status(500).json({
-    success: false,
-    message: "Terjadi kesalahan internal pada server.",
-    error: process.env.NODE_ENV === "development" ? err.message : undefined,
+// 1. Tambahkan Health Check Endpoint (Untuk sasaran tembak self-ping Render)
+app.get("/", (req: Request, res: Response) => {
+  res.status(200).json({
+    success: true,
+    message: "Backend Matengnews.id aktif dan berjalan lancar!",
   });
 });
 
-// Jalankan Server
+// Middleware Error Handling (Harus berada di bawah semua route)
+app.use(errorHandler);
+
+// Cukup SATU app.listen di bagian paling bawah
 app.listen(PORT, () => {
-  console.log(`[server]: Server berjalan aman di http://localhost:${PORT} dalam mode ${process.env.NODE_ENV}`);
+  console.log(`[server]: Server berjalan aman di port ${PORT} dalam mode ${process.env.NODE_ENV || "development"}`);
+
+  // 2. Tempelkan kode Self-Ping kamu di sini (berjalan setelah server nyala)
+  if (process.env.RENDER_EXTERNAL_HOSTNAME) {
+    const selfPingUrl = `https://${process.env.RENDER_EXTERNAL_HOSTNAME}`;
+    const pingInterval = 7 * 60 * 1000; // 7 menit
+
+    console.log(`Mengaktifkan self-ping ke: ${selfPingUrl} setiap 7 menit`);
+
+    setInterval(async () => {
+      try {
+        const response = await fetch(selfPingUrl);
+        if (response.ok) {
+          console.log(`[${new Date().toLocaleTimeString("id-ID")}] Self-ping sukses ke ${selfPingUrl}`);
+        } else {
+          console.warn(`[${new Date().toLocaleTimeString("id-ID")}] Self-ping gagal (Status: ${response.status})`);
+        }
+      } catch (error) {
+        console.error(`[${new Date().toLocaleTimeString("id-ID")}] Error saat self-ping:`, error instanceof Error ? error.message : "Unknown error");
+      }
+    }, pingInterval);
+  }
 });
