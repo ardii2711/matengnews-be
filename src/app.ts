@@ -8,6 +8,7 @@ import authRoutes from "./routes/auth";
 import categoryRoutes from "./routes/category";
 import postRoutes from "./routes/post";
 import videoRoutes from "./routes/video";
+import userRoutes from './routes/user';
 
 // Memuat environment variables dari file .env
 dotenv.config();
@@ -60,6 +61,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/posts", postRoutes);
 app.use("/api/videos", videoRoutes);
+app.use('/api/users', userRoutes);
 
 // --- GLOBAL ERROR HANDLER ---
 // Menangkap semua eror tak terduga agar stack trace internal database tidak bocor ke publik
