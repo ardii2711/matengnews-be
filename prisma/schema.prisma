@@ -1,0 +1,88 @@
+datasource db {
+  provider = "postgresql"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// 1. Enum untuk Aturan Akses User Internal
+enum Role {
+  ADMIN
+  EDITOR
+}
+
+// 2. Enum untuk Status Publikasi Berita
+enum PostStatus {
+  DRAFT
+  PUBLISHED
+}
+
+// 3. Tabel Users (Pengelola Internal: Admin & Editor)
+model User {
+  id        String   @id @default(uuid()) @db.Uuid
+  email     String   @unique
+  password  String
+  name      String
+  role      Role     @default(EDITOR)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relasi ke tabel lain
+  posts  Post[]
+  videos Video[]
+
+  @@map("users")
+}
+
+// 4. Tabel Kategori Berita
+model Category {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String   @db.VarChar(100)
+  slug      String   @unique @db.VarChar(100)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relasi ke tabel Post
+  posts Post[]
+
+  @@map("categories")
+}
+
+// 5. Tabel Berita / Artikel Teks
+model Post {
+  id           String     @id @default(uuid()) @db.Uuid
+  title        String     @db.VarChar(255)
+  slug         String     @unique @db.VarChar(255)
+  content      String     @db.Text
+  thumbnailUrl String     @map("thumbnail_url") @db.Text
+  status       PostStatus @default(DRAFT)
+  views        Int        @default(0)
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+
+  // Relasi ke tabel User (Author)
+  authorId String @map("author_id") @db.Uuid
+  author   User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  // Relasi ke tabel Category
+  categoryId String   @map("category_id") @db.Uuid
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+
+  @@map("posts")
+}
+
+// 6. Tabel Video Kegiatan Institusi
+model Video {
+  id         String   @id @default(uuid()) @db.Uuid
+  title      String   @db.VarChar(255)
+  youtubeUrl String   @map("youtube_url") @db.Text
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  // Relasi ke tabel User
+  authorId String @map("author_id") @db.Uuid
+  author   User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@map("videos")
+}
