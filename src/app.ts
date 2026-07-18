@@ -6,7 +6,8 @@ import dotenv from "dotenv";
 
 import authRoutes from "./routes/auth";
 import categoryRoutes from "./routes/category";
-import postRoutes from './routes/post';
+import postRoutes from "./routes/post";
+import videoRoutes from "./routes/video";
 
 // Memuat environment variables dari file .env
 dotenv.config();
@@ -57,7 +58,8 @@ app.get("/api/health", (req: Request, res: Response) => {
 // --- REGISTRASI ROUTING API ---
 app.use("/api/auth", authRoutes);
 app.use("/api/categories", categoryRoutes);
-app.use('/api/posts', postRoutes); // Tambahkan baris ini
+app.use("/api/posts", postRoutes);
+app.use("/api/videos", videoRoutes);
 
 // --- GLOBAL ERROR HANDLER ---
 // Menangkap semua eror tak terduga agar stack trace internal database tidak bocor ke publik
