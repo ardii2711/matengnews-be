@@ -18,6 +18,7 @@ const app: Application = express();
 const PORT = process.env.PORT || 5000;
 
 // --- SECURITY MIDDLEWARES ---
+app.set("trust proxy", 1);
 
 // 1. Helmet untuk mengamankan HTTP Header
 app.use(helmet());
