@@ -145,3 +145,101 @@ export const changePostStatus = async (req: Request, res: Response, next: NextFu
     next(error);
   }
 };
+
+// ==========================================
+// TAMBAHAN ENDPOINT PUBLIK
+// ==========================================
+
+// 6. Ambil Berita Berdasarkan Kategori (Untuk Menu Navigasi Publik)
+export const getPublicPostsByCategory = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const slug = req.params.slug as string;
+    const posts = await prisma.post.findMany({
+      where: { status: "PUBLISHED", category: { slug } },
+      orderBy: { createdAt: "desc" },
+      include: { category: { select: { name: true, slug: true } }, author: { select: { name: true } } },
+    });
+    res.status(200).json({ success: true, data: posts });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ==========================================
+// TAMBAHAN ENDPOINT DASHBOARD (EDIT & HAPUS)
+// ==========================================
+
+// 7. Edit Berita Keseluruhan (Teks & Gambar)
+export const updatePost = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const id = req.params.id as string;
+    const { title, slug, content, categoryId, status } = req.body;
+    const userId = req.user?.id;
+    const userRole = req.user?.role;
+
+    const existingPost = await prisma.post.findUnique({ where: { id } });
+    if (!existingPost) {
+      res.status(404).json({ success: false, message: "Berita tidak ditemukan." });
+      return;
+    }
+
+    // Editor hanya boleh edit berita buatannya sendiri
+    if (userRole === "EDITOR" && existingPost.authorId !== userId) {
+      res.status(403).json({ success: false, message: "Akses ditolak. Anda hanya dapat mengedit berita Anda sendiri." });
+      return;
+    }
+
+    // Tangani Gambar: Jika ada file gambar baru yang diunggah
+    let thumbnailUrl = existingPost.thumbnailUrl;
+    if (req.file) {
+      thumbnailUrl = await uploadToR2(req.file, "thumbnails"); // Upload gambar baru
+      await deleteFromR2(existingPost.thumbnailUrl); // Hapus gambar lama dari Cloudflare R2 untuk hemat kapasitas
+    }
+
+    const updatedPost = await prisma.post.update({
+      where: { id },
+      data: {
+        title: title || existingPost.title,
+        slug: slug ? slug.toLowerCase().replace(/ /g, "-") : existingPost.slug,
+        content: content || existingPost.content,
+        categoryId: categoryId || existingPost.categoryId,
+        status: userRole === "ADMIN" && status ? status : existingPost.status,
+        thumbnailUrl,
+      },
+    });
+
+    res.status(200).json({ success: true, message: "Berita berhasil diperbarui.", data: updatedPost });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// 8. Hapus Berita (Beserta Gambarnya di R2)
+export const deletePost = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const id = req.params.id as string;
+    const userId = req.user?.id;
+    const userRole = req.user?.role;
+
+    const existingPost = await prisma.post.findUnique({ where: { id } });
+    if (!existingPost) {
+      res.status(404).json({ success: false, message: "Berita tidak ditemukan." });
+      return;
+    }
+
+    if (userRole === "EDITOR" && existingPost.authorId !== userId) {
+      res.status(403).json({ success: false, message: "Akses ditolak. Anda hanya dapat menghapus berita Anda sendiri." });
+      return;
+    }
+
+    // 1. Hapus gambar fisik di Cloudflare R2 terlebih dahulu
+    await deleteFromR2(existingPost.thumbnailUrl);
+
+    // 2. Hapus data di database
+    await prisma.post.delete({ where: { id } });
+
+    res.status(200).json({ success: true, message: "Berita dan gambar terkait berhasil dihapus." });
+  } catch (error) {
+    next(error);
+  }
+};
