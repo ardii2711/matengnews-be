@@ -4,6 +4,7 @@ import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import dotenv from "dotenv";
 import { errorHandler } from "./middlewares/error";
+import prisma from "./config/db";
 
 import authRoutes from "./routes/auth";
 import categoryRoutes from "./routes/category";
@@ -93,3 +94,18 @@ app.listen(PORT, () => {
     }, pingInterval);
   }
 });
+
+// 3. Supabase Keep-Alive (Mencegah Database di-pause otomatis)
+const databasePingInterval = 12 * 60 * 60 * 1000; // Setiap 12 jam sekali
+
+console.log("Mengaktifkan Supabase keep-alive setiap 12 jam.");
+
+setInterval(async () => {
+  try {
+    // Melakukan query super ringan ke database hanya untuk menandai aktivitas
+    await prisma.$executeRaw`SELECT 1;`;
+    console.log(`[${new Date().toLocaleTimeString("id-ID")}] Supabase keep-alive berhasil dibunyikan.`);
+  } catch (error) {
+    console.error(`[${new Date().toLocaleTimeString("id-ID")}] Gagal menjaga Supabase tetap aktif:`, error);
+  }
+}, databasePingInterval);
