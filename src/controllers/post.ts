@@ -131,22 +131,42 @@ export const getPostBySlug = async (req: Request, res: Response, next: NextFunct
 // B. ENDPOINT UNTUK DASHBOARD (Butuh Login)
 // ==========================================
 
-// 4. Ambil Berita untuk Dashboard
+// 4. Ambil Berita untuk Dashboard (dengan search & pagination)
 export const getDashboardPosts = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const { page, limit, skip } = parsePagination(req);
     const userRole = req.user?.role;
     const userId = req.user?.id;
+    const search = (req.query.search as string) || "";
 
-    // Jika Editor, hanya tampilkan berita miliknya. Jika Admin, tampilkan semua.
-    const queryFilter = userRole === "EDITOR" ? { authorId: userId } : {};
+    const queryFilter: any = userRole === "EDITOR" ? { authorId: userId } : {};
 
-    const posts = await prisma.post.findMany({
-      where: queryFilter,
-      orderBy: { createdAt: "desc" },
-      include: { category: { select: { name: true } }, author: { select: { name: true } } },
+    if (search) {
+      queryFilter.OR = [
+        { title: { contains: search, mode: "insensitive" } },
+        { description: { contains: search, mode: "insensitive" } },
+      ];
+    }
+
+    const [posts, total] = await Promise.all([
+      prisma.post.findMany({
+        where: queryFilter,
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limit,
+        include: {
+          category: { select: { name: true } },
+          author: { select: { name: true } },
+        },
+      }),
+      prisma.post.count({ where: queryFilter }),
+    ]);
+
+    res.status(200).json({
+      success: true,
+      data: posts,
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
     });
-
-    res.status(200).json({ success: true, data: posts });
   } catch (error) {
     next(error);
   }
@@ -282,7 +302,38 @@ export const getPublicPostsByCategory = async (req: Request, res: Response, next
 // ENDPOINT DASHBOARD (EDIT & HAPUS)
 // ==========================================
 
-// 8. Edit Berita Keseluruhan (Teks & Gambar)
+// 8. Ambil Detail Berita untuk Edit
+export const getDashboardPostById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const id = req.params.id as string;
+    const userRole = req.user?.role;
+    const userId = req.user?.id;
+
+    const post = await prisma.post.findUnique({
+      where: { id },
+      include: {
+        category: { select: { name: true, slug: true } },
+        author: { select: { name: true } },
+      },
+    });
+
+    if (!post) {
+      res.status(404).json({ success: false, message: "Berita tidak ditemukan." });
+      return;
+    }
+
+    if (userRole === "EDITOR" && post.authorId !== userId) {
+      res.status(403).json({ success: false, message: "Akses ditolak." });
+      return;
+    }
+
+    res.status(200).json({ success: true, data: post });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// 9. Edit Berita Keseluruhan (Teks & Gambar)
 export const updatePost = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const id = req.params.id as string;

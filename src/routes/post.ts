@@ -4,6 +4,7 @@ import {
   getFeaturedPosts,
   getPostBySlug,
   getDashboardPosts,
+  getDashboardPostById,
   createPost,
   changePostStatus,
   getPublicPostsByCategory,
@@ -29,9 +30,11 @@ router.get("/public/:slug", getPostBySlug);
 // ==============================
 // Prefix: /api/posts/dashboard
 router.get("/dashboard", protect, getDashboardPosts);
+router.get("/dashboard/:id", protect, getDashboardPostById);
 router.post("/dashboard", protect, uploadImage.single("thumbnail"), createPost);
 router.patch("/dashboard/:id/status", protect, restrictTo("ADMIN"), changePostStatus);
 router.put("/dashboard/:id", protect, uploadImage.single("thumbnail"), updatePost);
 router.delete("/dashboard/:id", protect, deletePost);
+router.delete("/:id", protect, deletePost);
 
 export default router;

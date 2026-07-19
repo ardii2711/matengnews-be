@@ -11,6 +11,7 @@ import categoryRoutes from "./routes/category";
 import postRoutes from "./routes/post";
 import videoRoutes from "./routes/video";
 import userRoutes from "./routes/user";
+import statsRoutes from "./routes/stats";
 
 // Memuat environment variables dari file .env
 dotenv.config();
@@ -57,6 +58,7 @@ app.use("/api/categories", categoryRoutes);
 app.use("/api/posts", postRoutes);
 app.use("/api/videos", videoRoutes);
 app.use("/api/users", userRoutes);
+app.use("/api/stats", statsRoutes);
 
 // 1. Tambahkan Health Check Endpoint (Untuk sasaran tembak self-ping Render)
 app.get("/", (req: Request, res: Response) => {

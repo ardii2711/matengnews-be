@@ -41,21 +41,40 @@ export const getPublicVideos = async (req: Request, res: Response, next: NextFun
 // B. ENDPOINT UNTUK DASHBOARD (Butuh Login)
 // ==========================================
 
-// 2. Ambil Daftar Video untuk Dashboard
+// 2. Ambil Daftar Video untuk Dashboard (dengan search & pagination)
 export const getDashboardVideos = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const page = Math.max(1, parseInt(req.query.page as string) || 1);
+    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit as string) || 10));
+    const skip = (page - 1) * limit;
+    const search = (req.query.search as string) || "";
     const userRole = req.user?.role;
     const userId = req.user?.id;
 
-    const queryFilter = userRole === "EDITOR" ? { authorId: userId } : {};
+    const queryFilter: any = userRole === "EDITOR" ? { authorId: userId } : {};
+    if (search) {
+      queryFilter.OR = [
+        { title: { contains: search, mode: "insensitive" } },
+        { description: { contains: search, mode: "insensitive" } },
+      ];
+    }
 
-    const videos = await prisma.video.findMany({
-      where: queryFilter,
-      orderBy: { createdAt: "desc" },
-      include: { author: { select: { name: true } } },
+    const [videos, total] = await Promise.all([
+      prisma.video.findMany({
+        where: queryFilter,
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limit,
+        include: { author: { select: { name: true } } },
+      }),
+      prisma.video.count({ where: queryFilter }),
+    ]);
+
+    res.status(200).json({
+      success: true,
+      data: videos,
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
     });
-
-    res.status(200).json({ success: true, data: videos });
   } catch (error) {
     next(error);
   }
