@@ -6,8 +6,17 @@ export const getAllCategories = async (req: Request, res: Response, next: NextFu
   try {
     const categories = await prisma.category.findMany({
       orderBy: { name: "asc" },
+      include: {
+        _count: { select: { posts: true } },
+      },
     });
-    res.status(200).json({ success: true, data: categories });
+
+    const data = categories.map(({ _count, ...cat }) => ({
+      ...cat,
+      postCount: _count.posts,
+    }));
+
+    res.status(200).json({ success: true, data });
   } catch (error) {
     next(error);
   }
