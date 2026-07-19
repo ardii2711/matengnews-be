@@ -1,7 +1,6 @@
 import express, { Application, Request, Response } from "express";
 import cors from "cors";
 import helmet from "helmet";
-import rateLimit from "express-rate-limit";
 import dotenv from "dotenv";
 import { errorHandler } from "./middlewares/error";
 import prisma from "./config/db";
@@ -34,19 +33,6 @@ app.use(
     credentials: true,
   })
 );
-
-// 3. Rate Limiting untuk mencegah DDoS & Brute Force
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 menit
-  max: 100, // Maksimal 100 request per IP dalam 15 menit
-  message: {
-    success: false,
-    message: "Terlalu banyak permintaan dari IP ini, silakan coba lagi nanti setelah 15 menit.",
-  },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-app.use("/api/", limiter);
 
 // --- BODY PARSERS ---
 app.use(express.json());
