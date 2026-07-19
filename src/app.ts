@@ -24,13 +24,13 @@ app.set("trust proxy", 1);
 // 1. Helmet untuk mengamankan HTTP Header
 app.use(helmet());
 
-// 2. CORS (Cross-Origin Resource Sharing)
-// Saat development, kita izinkan semua origin. Saat production, kunci ke URL Next.js kamu.
+// 2. CORS (Cross-Origin Resource Sharing) — allow all origins
 app.use(
   cors({
-    origin: process.env.NODE_ENV === "production" ? ["https://matengnews.id", "https://www.matengnews.id"] : "*",
+    origin: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],
     allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true,
   })
 );
 
