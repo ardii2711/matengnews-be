@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getPublicVideos, getDashboardVideos, createVideo, deleteVideo } from "../controllers/video";
+import { getPublicVideos, getDashboardVideos, createVideo, updateVideo, deleteVideo } from "../controllers/video";
 import { protect } from "../middlewares/auth";
 
 const router = Router();
@@ -10,6 +10,7 @@ router.get("/public", getPublicVideos);
 // Rute Dashboard (Wajib Login, Admin & Editor bisa akses)
 router.get("/dashboard", protect, getDashboardVideos);
 router.post("/dashboard", protect, createVideo);
+router.put("/dashboard/:id", protect, updateVideo);
 router.delete("/dashboard/:id", protect, deleteVideo);
 
 export default router;

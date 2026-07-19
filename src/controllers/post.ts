@@ -3,27 +3,99 @@ import prisma from "../config/db";
 import { uploadToR2, deleteFromR2 } from "../utils/storage";
 
 // ==========================================
+// HELPER: Parse pagination & sort dari query params
+// ==========================================
+const parsePagination = (req: Request) => {
+  const page = Math.max(1, parseInt(req.query.page as string) || 1);
+  const limit = Math.min(50, Math.max(1, parseInt(req.query.limit as string) || 10));
+  const skip = (page - 1) * limit;
+  return { page, limit, skip };
+};
+
+const parseSort = (req: Request) => {
+  const sort = (req.query.sort as string) || "latest";
+  switch (sort) {
+    case "popular":
+      return { views: "desc" as const };
+    case "oldest":
+      return { createdAt: "asc" as const };
+    case "latest":
+    default:
+      return { createdAt: "desc" as const };
+  }
+};
+
+// ==========================================
 // A. ENDPOINT UNTUK PUBLIK (Tanpa Login)
 // ==========================================
 
-// 1. Ambil Semua Berita (Hanya yang PUBLISHED)
+// 1. Ambil Semua Berita (Hanya yang PUBLISHED) — dengan pagination, search, sort
 export const getPublicPosts = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
+    const { page, limit, skip } = parsePagination(req);
+    const orderBy = parseSort(req);
+    const search = (req.query.search as string) || "";
+
+    const where: any = { status: "PUBLISHED" };
+
+    if (search) {
+      where.OR = [
+        { title: { contains: search, mode: "insensitive" } },
+        { description: { contains: search, mode: "insensitive" } },
+      ];
+    }
+
+    const [posts, total] = await Promise.all([
+      prisma.post.findMany({
+        where,
+        orderBy,
+        skip,
+        take: limit,
+        include: {
+          author: { select: { name: true } },
+          category: { select: { name: true, slug: true } },
+        },
+      }),
+      prisma.post.count({ where }),
+    ]);
+
+    res.status(200).json({
+      success: true,
+      data: posts,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// 2. Ambil Berita Populer / Featured
+export const getFeaturedPosts = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const limit = Math.min(20, Math.max(1, parseInt(req.query.limit as string) || 5));
+
     const posts = await prisma.post.findMany({
       where: { status: "PUBLISHED" },
-      orderBy: { createdAt: "desc" },
+      orderBy: { views: "desc" },
+      take: limit,
       include: {
         author: { select: { name: true } },
         category: { select: { name: true, slug: true } },
       },
     });
+
     res.status(200).json({ success: true, data: posts });
   } catch (error) {
     next(error);
   }
 };
 
-// 2. Baca Detail Berita & Otomatis Tambah Views
+// 3. Baca Detail Berita & Otomatis Tambah Views
 export const getPostBySlug = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const slug = req.params.slug as string;
@@ -59,7 +131,7 @@ export const getPostBySlug = async (req: Request, res: Response, next: NextFunct
 // B. ENDPOINT UNTUK DASHBOARD (Butuh Login)
 // ==========================================
 
-// 3. Ambil Berita untuk Dashboard
+// 4. Ambil Berita untuk Dashboard
 export const getDashboardPosts = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const userRole = req.user?.role;
@@ -80,15 +152,23 @@ export const getDashboardPosts = async (req: Request, res: Response, next: NextF
   }
 };
 
-// 4. Buat Berita Baru (Dengan Upload Gambar R2)
+// 5. Buat Berita Baru (Dengan Upload Gambar R2)
 export const createPost = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { title, slug, content, categoryId } = req.body;
+    const { title, slug, content, categoryId, description, metaTitle, metaDesc } = req.body;
     const userId = req.user?.id as string;
     const userRole = req.user?.role;
 
     if (!title || !slug || !content || !categoryId) {
       res.status(400).json({ success: false, message: "Data berita tidak lengkap." });
+      return;
+    }
+
+    // Cek keunikan slug
+    const normalizedSlug = slug.toLowerCase().replace(/ /g, "-");
+    const existingSlug = await prisma.post.findUnique({ where: { slug: normalizedSlug } });
+    if (existingSlug) {
+      res.status(400).json({ success: false, message: "Slug berita sudah digunakan, silakan buat slug lain." });
       return;
     }
 
@@ -102,18 +182,22 @@ export const createPost = async (req: Request, res: Response, next: NextFunction
     const thumbnailUrl = await uploadToR2(req.file, "thumbnails");
 
     // Tentukan status publikasi
-    // Admin bisa langsung publish (jika dikirim dari frontend), Editor paksa masuk DRAFT
     const status = userRole === "ADMIN" ? req.body.status || "DRAFT" : "DRAFT";
+    const publishedAt = status === "PUBLISHED" ? new Date() : null;
 
     const newPost = await prisma.post.create({
       data: {
         title,
-        slug: slug.toLowerCase().replace(/ /g, "-"),
+        slug: normalizedSlug,
+        description: description || null,
         content,
         categoryId,
         authorId: userId,
         thumbnailUrl,
+        metaTitle: metaTitle || null,
+        metaDesc: metaDesc || null,
         status,
+        publishedAt,
       },
     });
 
@@ -123,10 +207,9 @@ export const createPost = async (req: Request, res: Response, next: NextFunction
   }
 };
 
-// 5. Ubah Status Publikasi (Khusus Admin)
+// 6. Ubah Status Publikasi (Khusus Admin)
 export const changePostStatus = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    // Penegasan tipe agar TypeScript tahu ini pasti string tunggal
     const id = req.params.id as string;
     const { status } = req.body;
 
@@ -135,9 +218,19 @@ export const changePostStatus = async (req: Request, res: Response, next: NextFu
       return;
     }
 
+    const updateData: any = { status };
+
+    // Set publishedAt saat pertama kali dipublish
+    if (status === "PUBLISHED") {
+      const post = await prisma.post.findUnique({ where: { id }, select: { publishedAt: true } });
+      if (post && !post.publishedAt) {
+        updateData.publishedAt = new Date();
+      }
+    }
+
     const updatedPost = await prisma.post.update({
       where: { id },
-      data: { status },
+      data: updateData,
     });
 
     res.status(200).json({ success: true, message: `Status berita berhasil diubah menjadi ${status}.`, data: updatedPost });
@@ -147,33 +240,53 @@ export const changePostStatus = async (req: Request, res: Response, next: NextFu
 };
 
 // ==========================================
-// TAMBAHAN ENDPOINT PUBLIK
+// ENDPOINT PUBLIK TAMBAHAN
 // ==========================================
 
-// 6. Ambil Berita Berdasarkan Kategori (Untuk Menu Navigasi Publik)
+// 7. Ambil Berita Berdasarkan Kategori (dengan pagination)
 export const getPublicPostsByCategory = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const slug = req.params.slug as string;
-    const posts = await prisma.post.findMany({
-      where: { status: "PUBLISHED", category: { slug } },
-      orderBy: { createdAt: "desc" },
-      include: { category: { select: { name: true, slug: true } }, author: { select: { name: true } } },
+    const { page, limit, skip } = parsePagination(req);
+    const orderBy = parseSort(req);
+
+    const where = { status: "PUBLISHED" as const, category: { slug } };
+
+    const [posts, total] = await Promise.all([
+      prisma.post.findMany({
+        where,
+        orderBy,
+        skip,
+        take: limit,
+        include: { category: { select: { name: true, slug: true } }, author: { select: { name: true } } },
+      }),
+      prisma.post.count({ where }),
+    ]);
+
+    res.status(200).json({
+      success: true,
+      data: posts,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
     });
-    res.status(200).json({ success: true, data: posts });
   } catch (error) {
     next(error);
   }
 };
 
 // ==========================================
-// TAMBAHAN ENDPOINT DASHBOARD (EDIT & HAPUS)
+// ENDPOINT DASHBOARD (EDIT & HAPUS)
 // ==========================================
 
-// 7. Edit Berita Keseluruhan (Teks & Gambar)
+// 8. Edit Berita Keseluruhan (Teks & Gambar)
 export const updatePost = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const id = req.params.id as string;
-    const { title, slug, content, categoryId, status } = req.body;
+    const { title, slug, content, categoryId, status, description, metaTitle, metaDesc } = req.body;
     const userId = req.user?.id;
     const userRole = req.user?.role;
 
@@ -189,11 +302,21 @@ export const updatePost = async (req: Request, res: Response, next: NextFunction
       return;
     }
 
+    // Cek keunikan slug jika slug diubah
+    if (slug && slug.toLowerCase().replace(/ /g, "-") !== existingPost.slug) {
+      const normalizedSlug = slug.toLowerCase().replace(/ /g, "-");
+      const slugExists = await prisma.post.findUnique({ where: { slug: normalizedSlug } });
+      if (slugExists) {
+        res.status(400).json({ success: false, message: "Slug berita sudah digunakan, silakan buat slug lain." });
+        return;
+      }
+    }
+
     // Tangani Gambar: Jika ada file gambar baru yang diunggah
     let thumbnailUrl = existingPost.thumbnailUrl;
     if (req.file) {
-      thumbnailUrl = await uploadToR2(req.file, "thumbnails"); // Upload gambar baru
-      await deleteFromR2(existingPost.thumbnailUrl); // Hapus gambar lama dari Cloudflare R2 untuk hemat kapasitas
+      thumbnailUrl = await uploadToR2(req.file, "thumbnails");
+      await deleteFromR2(existingPost.thumbnailUrl);
     }
 
     const updatedPost = await prisma.post.update({
@@ -201,8 +324,11 @@ export const updatePost = async (req: Request, res: Response, next: NextFunction
       data: {
         title: title || existingPost.title,
         slug: slug ? slug.toLowerCase().replace(/ /g, "-") : existingPost.slug,
+        description: description !== undefined ? description : existingPost.description,
         content: content || existingPost.content,
         categoryId: categoryId || existingPost.categoryId,
+        metaTitle: metaTitle !== undefined ? metaTitle : existingPost.metaTitle,
+        metaDesc: metaDesc !== undefined ? metaDesc : existingPost.metaDesc,
         status: userRole === "ADMIN" && status ? status : existingPost.status,
         thumbnailUrl,
       },
@@ -214,7 +340,7 @@ export const updatePost = async (req: Request, res: Response, next: NextFunction
   }
 };
 
-// 8. Hapus Berita (Beserta Gambarnya di R2)
+// 9. Hapus Berita (Beserta Gambarnya di R2)
 export const deletePost = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const id = req.params.id as string;

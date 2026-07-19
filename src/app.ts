@@ -73,7 +73,7 @@ app.use(errorHandler);
 app.listen(PORT, () => {
   console.log(`[server]: Server berjalan aman di port ${PORT} dalam mode ${process.env.NODE_ENV || "development"}`);
 
-  // 2. Tempelkan kode Self-Ping kamu di sini (berjalan setelah server nyala)
+  // 2. Self-ping ke Render (jika dikonfigurasi)
   if (process.env.RENDER_EXTERNAL_HOSTNAME) {
     const selfPingUrl = `https://${process.env.RENDER_EXTERNAL_HOSTNAME}`;
     const pingInterval = 7 * 60 * 1000; // 7 menit
@@ -93,19 +93,17 @@ app.listen(PORT, () => {
       }
     }, pingInterval);
   }
+
+  // 3. Supabase Keep-Alive (Mencegah Database di-pause otomatis)
+  const databasePingInterval = 12 * 60 * 60 * 1000; // Setiap 12 jam sekali
+  console.log("Mengaktifkan Supabase keep-alive setiap 12 jam.");
+
+  setInterval(async () => {
+    try {
+      await prisma.$executeRaw`SELECT 1;`;
+      console.log(`[${new Date().toLocaleTimeString("id-ID")}] Supabase keep-alive berhasil dibunyikan.`);
+    } catch (error) {
+      console.error(`[${new Date().toLocaleTimeString("id-ID")}] Gagal menjaga Supabase tetap aktif:`, error);
+    }
+  }, databasePingInterval);
 });
-
-// 3. Supabase Keep-Alive (Mencegah Database di-pause otomatis)
-const databasePingInterval = 12 * 60 * 60 * 1000; // Setiap 12 jam sekali
-
-console.log("Mengaktifkan Supabase keep-alive setiap 12 jam.");
-
-setInterval(async () => {
-  try {
-    // Melakukan query super ringan ke database hanya untuk menandai aktivitas
-    await prisma.$executeRaw`SELECT 1;`;
-    console.log(`[${new Date().toLocaleTimeString("id-ID")}] Supabase keep-alive berhasil dibunyikan.`);
-  } catch (error) {
-    console.error(`[${new Date().toLocaleTimeString("id-ID")}] Gagal menjaga Supabase tetap aktif:`, error);
-  }
-}, databasePingInterval);

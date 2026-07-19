@@ -37,11 +37,13 @@ model User {
 
 // 4. Tabel Kategori Berita
 model Category {
-  id        String   @id @default(uuid()) @db.Uuid
-  name      String   @db.VarChar(100)
-  slug      String   @unique @db.VarChar(100)
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id          String   @id @default(uuid()) @db.Uuid
+  name        String   @db.VarChar(100)
+  slug        String   @unique @db.VarChar(100)
+  description String?  @db.VarChar(255)
+  imageUrl    String?  @db.Text
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
 
   // Relasi ke tabel Post
   posts Post[]
@@ -51,15 +53,19 @@ model Category {
 
 // 5. Tabel Berita / Artikel Teks
 model Post {
-  id           String     @id @default(uuid()) @db.Uuid
-  title        String     @db.VarChar(255)
-  slug         String     @unique @db.VarChar(255)
-  content      String     @db.Text
-  thumbnailUrl String     @map("thumbnail_url") @db.Text
+  id           String      @id @default(uuid()) @db.Uuid
+  title        String      @db.VarChar(255)
+  slug         String      @unique @db.VarChar(255)
+  description  String?     @db.VarChar(500)
+  content      String      @db.Text
+  thumbnailUrl String      @map("thumbnail_url") @db.Text
+  metaTitle    String?     @db.VarChar(255)
+  metaDesc     String?     @db.VarChar(300)
   status       PostStatus @default(DRAFT)
-  views        Int        @default(0)
-  createdAt    DateTime   @default(now()) @map("created_at")
-  updatedAt    DateTime   @updatedAt @map("updated_at")
+  views        Int         @default(0)
+  publishedAt  DateTime?   @map("published_at")
+  createdAt    DateTime    @default(now()) @map("created_at")
+  updatedAt    DateTime    @updatedAt @map("updated_at")
 
   // Relasi ke tabel User (Author)
   authorId String @map("author_id") @db.Uuid
@@ -74,11 +80,13 @@ model Post {
 
 // 6. Tabel Video Kegiatan Institusi
 model Video {
-  id         String   @id @default(uuid()) @db.Uuid
-  title      String   @db.VarChar(255)
-  youtubeUrl String   @map("youtube_url") @db.Text
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
+  id           String   @id @default(uuid()) @db.Uuid
+  title        String   @db.VarChar(255)
+  description  String?  @db.Text
+  youtubeUrl   String   @map("youtube_url") @db.Text
+  thumbnailUrl String?  @map("thumbnail_url") @db.Text
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
 
   // Relasi ke tabel User
   authorId String @map("author_id") @db.Uuid

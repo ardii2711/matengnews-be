@@ -16,14 +16,14 @@ export const getAllCategories = async (req: Request, res: Response, next: NextFu
 // 2. Buat Kategori Baru (Akses: Khusus Admin)
 export const createCategory = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { name, slug } = req.body;
+    const { name, slug, description, imageUrl } = req.body;
 
     if (!name || !slug) {
       res.status(400).json({ success: false, message: "Nama dan Slug kategori wajib diisi." });
       return;
     }
 
-    // Cek kelangkaan slug
+    // Cek keunikan slug
     const existingCategory = await prisma.category.findUnique({ where: { slug } });
     if (existingCategory) {
       res.status(400).json({ success: false, message: "Slug kategori sudah digunakan, silakan buat slug lain." });
@@ -31,7 +31,12 @@ export const createCategory = async (req: Request, res: Response, next: NextFunc
     }
 
     const newCategory = await prisma.category.create({
-      data: { name, slug: slug.toLowerCase().replace(/ /g, "-") },
+      data: {
+        name,
+        slug: slug.toLowerCase().replace(/ /g, "-"),
+        description: description || null,
+        imageUrl: imageUrl || null,
+      },
     });
 
     res.status(201).json({ success: true, message: "Kategori baru berhasil ditambahkan.", data: newCategory });

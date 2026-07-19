@@ -1,8 +1,11 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
-const JWT_SECRET = process.env.JWT_SECRET || "fallback_secret_key_super_aman_123";
-// Definisikan default langsung sebagai type StringValue yang dikenali jwt
+if (!process.env.JWT_SECRET) {
+  throw new Error("JWT_SECRET tidak ditemukan di environment variables. Harap set di file .env");
+}
+
+const JWT_SECRET = process.env.JWT_SECRET;
 const JWT_EXPIRES_IN = (process.env.JWT_EXPIRES_IN || "1d") as jwt.SignOptions["expiresIn"];
 
 // 1. Enkripsi password mentah menjadi hash sebelum disimpan ke database

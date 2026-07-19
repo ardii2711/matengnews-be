@@ -5,14 +5,33 @@ import prisma from "../config/db";
 // A. ENDPOINT UNTUK PUBLIK (Tanpa Login)
 // ==========================================
 
-// 1. Ambil Semua Video Terbaru
+// 1. Ambil Semua Video Terbaru — dengan pagination
 export const getPublicVideos = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const videos = await prisma.video.findMany({
-      orderBy: { createdAt: "desc" },
-      include: { author: { select: { name: true } } },
+    const page = Math.max(1, parseInt(req.query.page as string) || 1);
+    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit as string) || 10));
+    const skip = (page - 1) * limit;
+
+    const [videos, total] = await Promise.all([
+      prisma.video.findMany({
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limit,
+        include: { author: { select: { name: true } } },
+      }),
+      prisma.video.count(),
+    ]);
+
+    res.status(200).json({
+      success: true,
+      data: videos,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
     });
-    res.status(200).json({ success: true, data: videos });
   } catch (error) {
     next(error);
   }
@@ -28,7 +47,6 @@ export const getDashboardVideos = async (req: Request, res: Response, next: Next
     const userRole = req.user?.role;
     const userId = req.user?.id;
 
-    // Jika Editor, hanya tampilkan video yang dia masukkan. Admin tampil semua.
     const queryFilter = userRole === "EDITOR" ? { authorId: userId } : {};
 
     const videos = await prisma.video.findMany({
@@ -46,7 +64,7 @@ export const getDashboardVideos = async (req: Request, res: Response, next: Next
 // 3. Tambah Video Baru
 export const createVideo = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const { title, youtubeUrl } = req.body;
+    const { title, youtubeUrl, description, thumbnailUrl } = req.body;
     const userId = req.user?.id as string;
 
     if (!title || !youtubeUrl) {
@@ -58,6 +76,8 @@ export const createVideo = async (req: Request, res: Response, next: NextFunctio
       data: {
         title,
         youtubeUrl,
+        description: description || null,
+        thumbnailUrl: thumbnailUrl || null,
         authorId: userId,
       },
     });
@@ -68,14 +88,50 @@ export const createVideo = async (req: Request, res: Response, next: NextFunctio
   }
 };
 
-// 4. Hapus Video
+// 4. Edit Video
+export const updateVideo = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const id = req.params.id as string;
+    const { title, youtubeUrl, description, thumbnailUrl } = req.body;
+    const userRole = req.user?.role;
+    const userId = req.user?.id;
+
+    const existingVideo = await prisma.video.findUnique({ where: { id } });
+
+    if (!existingVideo) {
+      res.status(404).json({ success: false, message: "Video tidak ditemukan." });
+      return;
+    }
+
+    // Editor hanya boleh edit video miliknya sendiri
+    if (userRole === "EDITOR" && existingVideo.authorId !== userId) {
+      res.status(403).json({ success: false, message: "Akses ditolak. Anda hanya dapat mengedit video Anda sendiri." });
+      return;
+    }
+
+    const updatedVideo = await prisma.video.update({
+      where: { id },
+      data: {
+        title: title || existingVideo.title,
+        youtubeUrl: youtubeUrl || existingVideo.youtubeUrl,
+        description: description !== undefined ? description : existingVideo.description,
+        thumbnailUrl: thumbnailUrl !== undefined ? thumbnailUrl : existingVideo.thumbnailUrl,
+      },
+    });
+
+    res.status(200).json({ success: true, message: "Video berhasil diperbarui.", data: updatedVideo });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// 5. Hapus Video
 export const deleteVideo = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const id = req.params.id as string;
     const userRole = req.user?.role;
     const userId = req.user?.id;
 
-    // Cari video yang mau dihapus
     const video = await prisma.video.findUnique({ where: { id } });
 
     if (!video) {
@@ -83,7 +139,6 @@ export const deleteVideo = async (req: Request, res: Response, next: NextFunctio
       return;
     }
 
-    // Otorisasi: Editor hanya boleh menghapus videonya sendiri
     if (userRole === "EDITOR" && video.authorId !== userId) {
       res.status(403).json({ success: false, message: "Anda tidak memiliki hak untuk menghapus video ini." });
       return;
