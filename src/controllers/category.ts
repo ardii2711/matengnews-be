@@ -27,13 +27,15 @@ export const createCategory = async (req: Request, res: Response, next: NextFunc
   try {
     const { name, slug, description, imageUrl } = req.body;
 
-    if (!name || !slug) {
-      res.status(400).json({ success: false, message: "Nama dan Slug kategori wajib diisi." });
+    if (!name) {
+      res.status(400).json({ success: false, message: "Nama kategori wajib diisi." });
       return;
     }
 
+    const normalizedSlug = slug || name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+
     // Cek keunikan slug
-    const existingCategory = await prisma.category.findUnique({ where: { slug } });
+    const existingCategory = await prisma.category.findUnique({ where: { slug: normalizedSlug } });
     if (existingCategory) {
       res.status(400).json({ success: false, message: "Slug kategori sudah digunakan, silakan buat slug lain." });
       return;
@@ -42,7 +44,7 @@ export const createCategory = async (req: Request, res: Response, next: NextFunc
     const newCategory = await prisma.category.create({
       data: {
         name,
-        slug: slug.toLowerCase().replace(/ /g, "-"),
+        slug: normalizedSlug,
         description: description || null,
         imageUrl: imageUrl || null,
       },
@@ -66,8 +68,10 @@ export const updateCategory = async (req: Request, res: Response, next: NextFunc
       return;
     }
 
-    if (slug && slug !== category.slug) {
-      const existingSlug = await prisma.category.findUnique({ where: { slug } });
+    const normalizedSlug = slug || (name ? name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") : category.slug);
+
+    if (normalizedSlug !== category.slug) {
+      const existingSlug = await prisma.category.findUnique({ where: { slug: normalizedSlug } });
       if (existingSlug) {
         res.status(400).json({ success: false, message: "Slug kategori sudah digunakan, silakan buat slug lain." });
         return;
@@ -78,7 +82,7 @@ export const updateCategory = async (req: Request, res: Response, next: NextFunc
       where: { id },
       data: {
         name: name || category.name,
-        slug: slug ? slug.toLowerCase().replace(/ /g, "-") : category.slug,
+        slug: normalizedSlug,
         description: description !== undefined ? (description || null) : category.description,
         imageUrl: imageUrl !== undefined ? (imageUrl || null) : category.imageUrl,
       },

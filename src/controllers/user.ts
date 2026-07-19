@@ -44,6 +44,45 @@ export const createUser = async (req: Request, res: Response, next: NextFunction
   }
 };
 
+// 3. Update Pengguna
+export const updateUser = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const id = req.params.id as string;
+    const { name, email, password, role } = req.body;
+
+    const user = await prisma.user.findUnique({ where: { id } });
+    if (!user) {
+      res.status(404).json({ success: false, message: "Pengguna tidak ditemukan." });
+      return;
+    }
+
+    // Cek email duplikat jika email diubah
+    if (email && email !== user.email) {
+      const existingEmail = await prisma.user.findUnique({ where: { email } });
+      if (existingEmail) {
+        res.status(400).json({ success: false, message: "Email sudah digunakan oleh pengguna lain." });
+        return;
+      }
+    }
+
+    const updateData: Record<string, any> = {};
+    if (name) updateData.name = name;
+    if (email) updateData.email = email;
+    if (role) updateData.role = role;
+    if (password) updateData.password = await hashPassword(password);
+
+    const updatedUser = await prisma.user.update({
+      where: { id },
+      data: updateData,
+      select: { id: true, name: true, email: true, role: true },
+    });
+
+    res.status(200).json({ success: true, message: "Pengguna berhasil diperbarui.", data: updatedUser });
+  } catch (error) {
+    next(error);
+  }
+};
+
 // 3. Hapus Pengguna
 export const deleteUser = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {

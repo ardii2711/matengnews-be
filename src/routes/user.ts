@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getUsers, createUser, deleteUser } from "../controllers/user";
+import { getUsers, createUser, updateUser, deleteUser } from "../controllers/user";
 import { protect, restrictTo } from "../middlewares/auth";
 
 const router = Router();
@@ -9,6 +9,7 @@ router.use(protect, restrictTo("ADMIN"));
 
 router.get("/", getUsers);
 router.post("/", createUser);
+router.put("/:id", updateUser);
 router.delete("/:id", deleteUser);
 
 export default router;
