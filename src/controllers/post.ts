@@ -302,7 +302,7 @@ export const getPublicPostsByCategory = async (req: Request, res: Response, next
 // ENDPOINT DASHBOARD (EDIT & HAPUS)
 // ==========================================
 
-// 8. Ambil Detail Berita untuk Edit
+// 8. Ambil Detail Berita untuk Edit / Preview
 export const getDashboardPostById = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     const id = req.params.id as string;
