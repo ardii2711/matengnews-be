@@ -54,7 +54,43 @@ export const createCategory = async (req: Request, res: Response, next: NextFunc
   }
 };
 
-// 3. Hapus Kategori (Akses: Khusus Admin)
+// 3. Update Kategori (Akses: Khusus Admin)
+export const updateCategory = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  try {
+    const id = req.params.id as string;
+    const { name, slug, description, imageUrl } = req.body;
+
+    const category = await prisma.category.findUnique({ where: { id } });
+    if (!category) {
+      res.status(404).json({ success: false, message: "Kategori tidak ditemukan." });
+      return;
+    }
+
+    if (slug && slug !== category.slug) {
+      const existingSlug = await prisma.category.findUnique({ where: { slug } });
+      if (existingSlug) {
+        res.status(400).json({ success: false, message: "Slug kategori sudah digunakan, silakan buat slug lain." });
+        return;
+      }
+    }
+
+    const updatedCategory = await prisma.category.update({
+      where: { id },
+      data: {
+        name: name || category.name,
+        slug: slug ? slug.toLowerCase().replace(/ /g, "-") : category.slug,
+        description: description !== undefined ? (description || null) : category.description,
+        imageUrl: imageUrl !== undefined ? (imageUrl || null) : category.imageUrl,
+      },
+    });
+
+    res.status(200).json({ success: true, message: "Kategori berhasil diperbarui.", data: updatedCategory });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// 4. Hapus Kategori (Akses: Khusus Admin)
 export const deleteCategory = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
     // Penegasan tipe (Type Casting) agar TS yakin ini pasti string tunggal

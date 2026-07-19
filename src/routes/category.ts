@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { getAllCategories, createCategory, deleteCategory } from "../controllers/category";
+import { getAllCategories, createCategory, updateCategory, deleteCategory } from "../controllers/category";
 import { protect, restrictTo } from "../middlewares/auth";
 
 const router = Router();
@@ -11,5 +11,7 @@ router.get("/", getAllCategories);
 router.post("/", protect, restrictTo("ADMIN"), createCategory);
 
 router.delete("/:id", protect, restrictTo("ADMIN"), deleteCategory);
+
+router.put("/:id", protect, restrictTo("ADMIN"), updateCategory);
 
 export default router;
