@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import prisma from "../config/db";
+import { parsePagination } from "../utils/pagination";
 
 // ==========================================
 // A. ENDPOINT UNTUK PUBLIK (Tanpa Login)
@@ -8,9 +9,7 @@ import prisma from "../config/db";
 // 1. Ambil Semua Video Terbaru — dengan pagination
 export const getPublicVideos = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const page = Math.max(1, parseInt(req.query.page as string) || 1);
-    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit as string) || 10));
-    const skip = (page - 1) * limit;
+    const { page, limit, skip } = parsePagination(req);
 
     const [videos, total] = await Promise.all([
       prisma.video.findMany({
@@ -44,9 +43,7 @@ export const getPublicVideos = async (req: Request, res: Response, next: NextFun
 // 2. Ambil Daftar Video untuk Dashboard (dengan search & pagination)
 export const getDashboardVideos = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   try {
-    const page = Math.max(1, parseInt(req.query.page as string) || 1);
-    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit as string) || 10));
-    const skip = (page - 1) * limit;
+    const { page, limit, skip } = parsePagination(req);
     const search = (req.query.search as string) || "";
     const userRole = req.user?.role;
     const userId = req.user?.id;

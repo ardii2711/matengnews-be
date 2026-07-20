@@ -35,6 +35,5 @@ router.post("/dashboard", protect, uploadImage.single("thumbnail"), createPost);
 router.patch("/dashboard/:id/status", protect, restrictTo("ADMIN"), changePostStatus);
 router.put("/dashboard/:id", protect, uploadImage.single("thumbnail"), updatePost);
 router.delete("/dashboard/:id", protect, deletePost);
-router.delete("/:id", protect, deletePost);
 
 export default router;
