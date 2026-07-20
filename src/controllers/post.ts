@@ -331,6 +331,12 @@ export const updatePost = async (req: Request, res: Response, next: NextFunction
       return;
     }
 
+    // Editor tidak boleh edit berita yang sudah dipublish
+    if (userRole === "EDITOR" && existingPost.status === "PUBLISHED") {
+      res.status(403).json({ success: false, message: "Akses ditolak. Berita yang sudah dipublikasikan tidak dapat diedit." });
+      return;
+    }
+
     // Cek keunikan slug jika slug diubah
     if (slug && slug.toLowerCase().replace(/ /g, "-") !== existingPost.slug) {
       const normalizedSlug = slug.toLowerCase().replace(/ /g, "-");
@@ -384,6 +390,12 @@ export const deletePost = async (req: Request, res: Response, next: NextFunction
 
     if (userRole === "EDITOR" && existingPost.authorId !== userId) {
       res.status(403).json({ success: false, message: "Akses ditolak. Anda hanya dapat menghapus berita Anda sendiri." });
+      return;
+    }
+
+    // Editor tidak boleh hapus berita yang sudah dipublish
+    if (userRole === "EDITOR" && existingPost.status === "PUBLISHED") {
+      res.status(403).json({ success: false, message: "Akses ditolak. Berita yang sudah dipublikasikan tidak dapat dihapus." });
       return;
     }
 

@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from "express";
-import { verifyToken } from "../utils/auth";
+import { verifyAccessToken } from "../utils/auth";
 
 // 1. Middleware untuk memeriksa apakah user sudah login (Mempunyai token JWT yang valid)
 export const protect = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
@@ -20,7 +20,7 @@ export const protect = async (req: Request, res: Response, next: NextFunction): 
     }
 
     // Verifikasi validitas token JWT
-    const decoded = verifyToken(token);
+    const decoded = verifyAccessToken(token);
 
     // Tempelkan data payload token ke objek request agar bisa diakses di controller berikutnya
     req.user = decoded;

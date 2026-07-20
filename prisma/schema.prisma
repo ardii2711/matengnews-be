@@ -32,7 +32,21 @@ model User {
   posts  Post[]
   videos Video[]
 
+  refreshTokens RefreshToken[]
+
   @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid()) @db.Uuid
+  token     String   @unique
+  userId    String   @map("user_id") @db.Uuid
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  revoked   Boolean  @default(false)
+
+  @@map("refresh_tokens")
 }
 
 // 4. Tabel Kategori Berita
@@ -80,13 +94,15 @@ model Post {
 
 // 6. Tabel Video Kegiatan Institusi
 model Video {
-  id           String   @id @default(uuid()) @db.Uuid
-  title        String   @db.VarChar(255)
-  description  String?  @db.Text
-  youtubeUrl   String   @map("youtube_url") @db.Text
-  thumbnailUrl String?  @map("thumbnail_url") @db.Text
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
+  id           String      @id @default(uuid()) @db.Uuid
+  title        String      @db.VarChar(255)
+  description  String?     @db.Text
+  youtubeUrl   String      @map("youtube_url") @db.Text
+  thumbnailUrl String?     @map("thumbnail_url") @db.Text
+  status       PostStatus  @default(DRAFT)
+  publishedAt  DateTime?   @map("published_at")
+  createdAt    DateTime    @default(now()) @map("created_at")
+  updatedAt    DateTime    @updatedAt @map("updated_at")
 
   // Relasi ke tabel User
   authorId String @map("author_id") @db.Uuid

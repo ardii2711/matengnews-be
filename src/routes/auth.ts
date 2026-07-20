@@ -1,10 +1,9 @@
 import { Router } from "express";
 import rateLimit from "express-rate-limit";
-import { login } from "../controllers/auth";
+import { login, refresh, logout } from "../controllers/auth";
 
 const router = Router();
 
-// Rate limiter khusus login — skip successful requests
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
@@ -17,7 +16,8 @@ const loginLimiter = rateLimit({
   skipSuccessfulRequests: true,
 });
 
-// Jalur akses POST /api/auth/login
 router.post("/login", loginLimiter, login);
+router.post("/refresh", refresh);
+router.post("/logout", logout);
 
 export default router;

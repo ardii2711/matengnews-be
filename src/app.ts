@@ -2,6 +2,7 @@ import express, { Application, Request, Response } from "express";
 import cors from "cors";
 import helmet from "helmet";
 import dotenv from "dotenv";
+import cookieParser from "cookie-parser";
 import { errorHandler } from "./middlewares/error";
 import prisma from "./config/db";
 
@@ -37,6 +38,7 @@ app.use(
 // --- BODY PARSERS ---
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser());
 
 // --- REGISTRASI ROUTING API ---
 app.use("/api/auth", authRoutes);
